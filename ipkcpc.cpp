@@ -15,6 +15,69 @@
 
 using namespace std;
 
+void tcpitis(int client_socket, char *buf, struct sockaddr_in server_address, string endit, int bytestx, int bytesrx)
+{
+    if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0)
+        {
+            perror("ERROR: connect");
+            exit(EXIT_FAILURE);        
+        }
+
+    while (endit!=buf)
+    {   
+        bzero(buf, BUFSIZE);
+        printf("Please enter msg: ");
+        fgets(buf, BUFSIZE, stdin); 
+        int buf_len = strlen(buf);
+        buf[buf_len]=(char)10;
+
+        /* odeslani zpravy na server */
+        bytestx = send(client_socket, buf, strlen(buf), 0);
+        if (bytestx < 0) 
+        perror("ERROR in sendto");
+        bzero(buf, BUFSIZE);
+        
+        /* prijeti odpovedi a jeji vypsani */
+        bytesrx = recv(client_socket, buf, BUFSIZE, 0);
+        if (bytesrx < 0) 
+        perror("ERROR in recvfrom");
+        
+        printf("Echo from server: %s", buf);
+        if (endit==buf)
+        {
+            close(client_socket);
+        }
+    }
+}
+
+void udpitis (int client_socket, char *buf, struct sockaddr_in server_address, string endit, int bytestx, int bytesrx)
+{
+    while (endit!=buf)
+    {   
+        bzero(buf, BUFSIZE);
+        printf("Please enter msg: ");
+        fgets(buf, BUFSIZE, stdin); 
+        int buf_len = strlen(buf);
+        buf[buf_len]=(char)10;
+
+        /* odeslani zpravy na server */
+        bytestx = sendto(client_socket, buf, strlen(buf), 0, (const struct sockaddr *) &server_address, sizeof(server_address));
+        if (bytestx < 0) 
+        perror("ERROR in sendto");
+        bzero(buf, BUFSIZE);
+        
+        /* prijeti odpovedi a jeji vypsani */
+        //FIXME bytesrx = recvfrom(client_socket, buf, BUFSIZE, 0, (struct sockaddr *) &server_address, sizeof(server_address));
+        if (bytesrx < 0) 
+        perror("ERROR in recvfrom");
+        
+        printf("Echo from server: %s", buf);
+        if (endit==buf)
+        {
+            close(client_socket);
+        }
+    }
+}
 
 int main(int argc, char *argv[])
 {
@@ -27,6 +90,9 @@ int client_socket, port_number, bytestx, bytesrx;
 const char *server_hostname;
 struct hostent *server;
 struct sockaddr_in server_address;
+
+string endit = "BYE\n";
+
 char buf[BUFSIZE];
 
 const struct option longopts[] =
@@ -59,13 +125,13 @@ const struct option longopts[] =
 
     if (host.empty() || port.empty() || mode.empty())
     {
-        fprintf(stderr, "Usage: [-h host] [-p port] [-m mode] \n");
+        fprintf(stderr, "Usage: [-h host] [-p port] [-m mode]\n");
         return EXIT_FAILURE;
     }
 
     port_number = atoi(port.c_str());
     server_hostname = host.c_str();
-    
+
     if ((server = gethostbyname(server_hostname)) == NULL) {
         fprintf(stderr,"ERROR: no such host as %s\n", server_hostname);
         exit(EXIT_FAILURE);
@@ -77,34 +143,27 @@ const struct option longopts[] =
     bcopy((char *)server->h_addr, (char *)&server_address.sin_addr.s_addr, server->h_length);
     server_address.sin_port = htons(port_number);
 
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
-	{
-		perror("ERROR: socket");
-		exit(EXIT_FAILURE);
-	}
-
-    bzero(buf, BUFSIZE);
-    printf("Please enter msg: ");
-    fgets(buf, BUFSIZE, stdin);
-
-    if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0)
+    if (mode == "tcp")
     {
-		perror("ERROR: connect");
-		exit(EXIT_FAILURE);        
+        if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
+        {
+            perror("ERROR: socket");
+            exit(EXIT_FAILURE);
+        } 
+        tcpitis(client_socket, buf, server_address, endit, bytestx, bytesrx);     
     }
-
-    /* odeslani zpravy na server */
-    bytestx = send(client_socket, buf, strlen(buf), 0);
-    if (bytestx < 0) 
-      perror("ERROR in sendto");
-    
-    /* prijeti odpovedi a jeji vypsani */
-    bytesrx = recv(client_socket, buf, BUFSIZE, 0);
-    if (bytesrx < 0) 
-      perror("ERROR in recvfrom");
-      
-    printf("Echo from server: %s", buf);
-        
-    close(client_socket);
+    else if (mode == "udp")
+    {
+        if ((client_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0)
+        {
+            perror("ERROR: socket");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else
+    {
+        fprintf(stderr, "ERROR: wrong mode\n");
+        exit(EXIT_FAILURE);
+    }
     return 0;
 }
