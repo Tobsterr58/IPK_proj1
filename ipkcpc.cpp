@@ -29,9 +29,9 @@ int client_socket; //can be also not global but its easier to use it in signal h
 void handle_sigint_TCP(int sig) {
     send(client_socket, "BYE\n", strlen("BYE\n"), 0);
     char buf[BUFSIZE];
-    int bytesrx = recv(client_socket, buf, BUFSIZE, 0);
+    recv(client_socket, buf, BUFSIZE, 0);
     printf("%s", buf);
-    close(client_socket);
+    close(sig);
     exit(0);
 }
 
@@ -44,8 +44,6 @@ void tcpitis(int client_socket, char *buf, struct sockaddr_in server_address, st
     sigemptyset(&sigIntHandler.sa_mask);
     sigIntHandler.sa_flags = 0;
     sigaction(SIGINT, &sigIntHandler, NULL);
-
-    socklen_t server_address_length = sizeof(server_address);
 
     if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0)
         {
@@ -90,7 +88,7 @@ void handle_sigint_UDP(int sig) {
 }
 
 //udp function with signal handler for CTRL+D and CTRL+C
-void udpitis(int client_socket, char *buf, struct sockaddr_in server_address, string endit, int bytestx, int bytesrx) {
+void udpitis(int client_socket, char *buf, struct sockaddr_in server_address, int bytestx, int bytesrx) {
     struct sigaction sigIntHandler;
     sigIntHandler.sa_handler = handle_sigint_UDP;
     sigemptyset(&sigIntHandler.sa_mask);
@@ -220,7 +218,7 @@ const struct option longopts[] =
             perror("ERROR: socket");
             exit(EXIT_FAILURE);
         }
-        udpitis(client_socket, buf, server_address, endit, bytestx, bytesrx);
+        udpitis(client_socket, buf, server_address, bytestx, bytesrx);
     }
     else
     {
