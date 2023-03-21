@@ -1,6 +1,6 @@
 PROJECT=ipkcpc
 COMPILER=g++
-CCFLAGS=-std=c++20 -Wall -Wextra -Wpedantic
+CCFLAGS=-std=c++20 -Wall -Wextra -Wpedantic -g
 
 .PHONY: all
 all: $(PROJECT).cpp
@@ -9,4 +9,3 @@ all: $(PROJECT).cpp
 .PHONY: clean
 clean:
 	rm $(PROJECT)
-	

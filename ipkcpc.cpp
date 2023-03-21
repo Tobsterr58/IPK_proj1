@@ -29,6 +29,7 @@ int client_socket; //can be also not global but its easier to use it in signal h
 void handle_sigint_TCP(int sig) {
     send(client_socket, "BYE\n", strlen("BYE\n"), 0);
     char buf[BUFSIZE];
+    bzero(buf, BUFSIZE);
     recv(client_socket, buf, BUFSIZE, 0);
     printf("%s", buf);
     close(sig);
@@ -36,59 +37,57 @@ void handle_sigint_TCP(int sig) {
 }
 
 //tcp function with signal handler for CTRL+D and CTRL+C
-void tcpitis(int client_socket, char *buf, struct sockaddr_in server_address, string endit, int bytestx, int bytesrx)
+void tcp_it_is(int client_socket, char *buf, struct sockaddr_in server_address, string endit, int bytestx, int bytesrx)
 {
-    int controlPressed = 0;
     struct sigaction sigIntHandler;
     sigIntHandler.sa_handler = handle_sigint_TCP;
     sigemptyset(&sigIntHandler.sa_mask);
     sigIntHandler.sa_flags = 0;
     sigaction(SIGINT, &sigIntHandler, NULL);
+    sigaction(SIGQUIT, &sigIntHandler, NULL);
 
     if (connect(client_socket, (const struct sockaddr *) &server_address, sizeof(server_address)) != 0)
-        {
-            perror("ERROR: connect");
-            exit(EXIT_FAILURE);        
-        }
+    {
+        perror("ERROR: connect");
+        exit(EXIT_FAILURE);        
+    }
 
-    while (endit!=buf)
+    while (true)
     {   
-        bzero(buf, BUFSIZE); //clears buffer
-        if (controlPressed == 0 && feof(stdin)) {
-            buf= "BYE\n";
-        }
-        else {
-        fgets(buf, BUFSIZE, stdin); //gets input from stdin
-        }    
+        bzero(buf, BUFSIZE);
+        if (fgets(buf, BUFSIZE, stdin) == NULL) {
+        // end-of-file condition (user pressed CTRL+D)
+        handle_sigint_TCP(SIGQUIT);
+    } else {
         int buf_len = strlen(buf);
-        buf[buf_len]=(char)10; //adds new line to the end of input
-
-        bytestx = send(client_socket, buf, strlen(buf), 0); //sends input to server
+        buf[buf_len-1] = '\n';
+    }
+        bytestx = send(client_socket, buf, strlen(buf), 0);
         if (bytestx < 0) 
-        perror("ERROR in sendto");
+            perror("ERROR in sendto");
         bzero(buf, BUFSIZE);
         
-        bytesrx = recv(client_socket, buf, BUFSIZE, 0); //gets response from server
+        bytesrx = recv(client_socket, buf, BUFSIZE, 0);
         if (bytesrx < 0) 
-        perror("ERROR in recvfrom");
+            perror("ERROR in recvfrom");
         
         printf("%s", buf);
-        if (endit==buf)
+        if (strcmp(buf, endit.c_str()) == 0)
         {
-            close(client_socket);
+            break;
         }
     }
+    close(client_socket);
 }
 
 //signal handler for UDP (CTRL+C)
 void handle_sigint_UDP(int sig) {
-    printf("\n");
     close(sig);
     exit(0);
 }
 
 //udp function with signal handler for CTRL+D and CTRL+C
-void udpitis(int client_socket, char *buf, struct sockaddr_in server_address, int bytestx, int bytesrx) {
+void udp_it_is(int client_socket, char *buf, struct sockaddr_in server_address, int bytestx, int bytesrx) {
     struct sigaction sigIntHandler;
     sigIntHandler.sa_handler = handle_sigint_UDP;
     sigemptyset(&sigIntHandler.sa_mask);
@@ -102,8 +101,7 @@ void udpitis(int client_socket, char *buf, struct sockaddr_in server_address, in
         bzero(buf, BUFSIZE);
         fgets(buf + 2, BUFSIZE - 2, stdin);
 
-        if (feof(stdin)) { // CTRL+D
-            printf("\n");
+        if (feof(stdin)) { // CTRL+D (end-of-file)
             close(client_socket);
             done = true;
             continue;
@@ -146,7 +144,7 @@ int arg=0;
 string host;
 string port;
 string mode;
-int port_number, bytestx, bytesrx;
+int port_number, bytestx=0, bytesrx=0;
 const char *server_hostname;
 struct hostent *server;
 struct sockaddr_in server_address;
@@ -189,7 +187,6 @@ const struct option longopts[] =
         }
     }
 
-
     if (host.empty() || port.empty() || mode.empty()) //checks if arguments are empty
     {
         fprintf(stderr, "Usage: [-h host] [-p port] [-m mode]\n");
@@ -201,7 +198,7 @@ const struct option longopts[] =
 
     if ((server = gethostbyname(server_hostname)) == NULL) { //checks if host is valid
         fprintf(stderr,"ERROR: no such host as %s\n", server_hostname);
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
 
@@ -211,28 +208,28 @@ const struct option longopts[] =
     server_address.sin_port = htons(port_number); //sets port number to server_address
 
     //checks if mode is tcp or udp
-    if (mode == "tcp")
+    if (mode == "tcp" || mode == "TCP")
     {
         if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) <= 0)
         {
             perror("ERROR: socket");
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         } 
-        tcpitis(client_socket, buf, server_address, endit, bytestx, bytesrx);     
+        tcp_it_is(client_socket, buf, server_address, endit, bytestx, bytesrx);     
     }
-    else if (mode == "udp")
+    else if (mode == "udp" || mode == "UDP")
     {
         if ((client_socket = socket(AF_INET, SOCK_DGRAM, 0)) <= 0)
         {
             perror("ERROR: socket");
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
-        udpitis(client_socket, buf, server_address, bytestx, bytesrx);
+        udp_it_is(client_socket, buf, server_address, bytestx, bytesrx);
     }
     else
     {
-        fprintf(stderr, "ERROR: wrong mode\n");
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "ERROR: wrong mode (TCP or UDP)\n");
+        return EXIT_FAILURE;
     }
     return 0;
 }
