@@ -32,3 +32,9 @@
 *.out
 *.app
 *.ipkcp
+
+# Other
+*.vscode/*
+output/*
+ipkcpc
+*.zip
