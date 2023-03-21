@@ -126,9 +126,18 @@ void udpitis(int client_socket, char *buf, struct sockaddr_in server_address, in
             continue;
         }
 
-        printf("%s", buf + 2);
+        // Handle the status code and response from the server
+        int status_code = (int) buf[1];
+        int response_length = (int) buf[2];
+
+        if (status_code == 0) {
+            printf("OK:%.*s\n", response_length, buf + 3);
+        } else {
+            printf("ERR:%.*s\n", response_length, buf + 3);
+        }
     }
 }
+
 
 int main(int argc, char *argv[])
 {

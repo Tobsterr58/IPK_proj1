@@ -9,3 +9,4 @@ all: $(PROJECT).cpp
 .PHONY: clean
 clean:
 	rm $(PROJECT)
+	
